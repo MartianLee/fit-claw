@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.fitclaw.api</string>
+  <key>ProgramArguments</key>
+  <array>
+    <string>/Users/dede/.bun/bin/bun</string>
+    <string>/Users/dede/workspace/fit-claw/src/server.ts</string>
+  </array>
+  <key>WorkingDirectory</key><string>/Users/dede/workspace/fit-claw</string>
+  <key>EnvironmentVariables</key>
+  <dict>
+    <key>PATH</key><string>/Users/dede/.bun/bin:/usr/local/bin:/usr/bin:/bin</string>
+  </dict>
+  <key>RunAtLoad</key><true/>
+  <key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>/Users/dede/workspace/fit-claw/data/api.log</string>
+  <key>StandardErrorPath</key><string>/Users/dede/workspace/fit-claw/data/api.err.log</string>
+</dict></plist>
