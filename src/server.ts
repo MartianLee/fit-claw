@@ -4,6 +4,7 @@ import { bearerAuth } from './auth/bearer'
 import { loadConfig } from './config'
 import { getDb } from './db/client'
 import { errorJson } from './lib/http'
+import { mountTools } from './tools'
 
 export function createApp(db?: Database) {
   const app = new Hono()
@@ -14,6 +15,7 @@ export function createApp(db?: Database) {
   if (db) {
     app.use('/tools/*', bearerAuth({ db }))
     app.use('/import/*', bearerAuth({ db }))
+    mountTools(app, { db })
   }
 
   return app
