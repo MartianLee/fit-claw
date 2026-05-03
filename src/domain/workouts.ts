@@ -106,3 +106,88 @@ export function createWorkoutEntry(db: Database, input: CreateEntryInput) {
     return { session, entry, sets }
   })()
 }
+
+export type QueryWorkoutsInput = {
+  user_id: number
+  date_from?: string
+  date_to?: string
+  exercise_id?: number
+}
+
+export type WorkoutGroup = {
+  session: WorkoutSession
+  entries: { entry: WorkoutEntry; sets: WorkoutSet[] }[]
+}
+
+export function queryWorkouts(db: Database, query: QueryWorkoutsInput): WorkoutGroup[] {
+  const sessions = db
+    .query(
+      `SELECT * FROM workout_sessions
+       WHERE user_id = ?
+         AND (? IS NULL OR started_at >= ?)
+         AND (? IS NULL OR started_at <= ?)
+       ORDER BY started_at DESC`,
+    )
+    .all(
+      query.user_id,
+      query.date_from ?? null,
+      query.date_from ?? null,
+      query.date_to ?? null,
+      query.date_to ?? null,
+    ) as WorkoutSession[]
+
+  const groups: WorkoutGroup[] = []
+  for (const session of sessions) {
+    const entries = query.exercise_id
+      ? (db
+          .query('SELECT * FROM workout_entries WHERE session_id = ? AND exercise_id = ? ORDER BY sequence')
+          .all(session.id, query.exercise_id) as WorkoutEntry[])
+      : (db
+          .query('SELECT * FROM workout_entries WHERE session_id = ? ORDER BY sequence')
+          .all(session.id) as WorkoutEntry[])
+
+    if (query.exercise_id && entries.length === 0) continue
+
+    groups.push({
+      session,
+      entries: entries.map((entry) => ({
+        entry,
+        sets: db
+          .query('SELECT * FROM workout_sets WHERE entry_id = ? ORDER BY set_number')
+          .all(entry.id) as WorkoutSet[],
+      })),
+    })
+  }
+
+  return groups
+}
+
+export function recentWorkouts(db: Database, query: { user_id: number; days?: number }) {
+  const days = query.days ?? 7
+  const cutoff = new Date(Date.now() - days * 86_400_000).toISOString()
+  return queryWorkouts(db, { user_id: query.user_id, date_from: cutoff })
+}
+
+export function updateSet(db: Database, id: number, patch: Partial<SetInput>): WorkoutSet {
+  const fields = ['weight_kg', 'reps', 'rpe', 'rir', 'rest_sec', 'tempo', 'notes'] as const
+  const updates: string[] = []
+  const values: (string | number | null)[] = []
+
+  for (const field of fields) {
+    if (patch[field] !== undefined) {
+      updates.push(`${field} = ?`)
+      values.push(patch[field])
+    }
+  }
+
+  if (updates.length > 0) {
+    values.push(id)
+    db.run(`UPDATE workout_sets SET ${updates.join(', ')} WHERE id = ?`, values)
+  }
+
+  return db.query('SELECT * FROM workout_sets WHERE id = ?').get(id) as WorkoutSet
+}
+
+export function deleteSet(db: Database, id: number): void {
+  db.run('DELETE FROM workout_sets WHERE id = ?', [id])
+}
