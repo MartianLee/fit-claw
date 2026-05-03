@@ -36,7 +36,10 @@ export type Config = {
 }
 
 export function loadConfig(env: Record<string, string | undefined> = process.env): Config {
-  const parsed = Schema.parse(env)
+  const normalized = Object.fromEntries(
+    Object.entries(env).map(([key, value]) => [key, value === '' ? undefined : value]),
+  ) as Record<string, string | undefined>
+  const parsed = Schema.parse(normalized)
 
   return {
     port: parsed.PORT,

@@ -19,4 +19,17 @@ describe('loadConfig', () => {
     expect(cfg.databasePath).toBe('./x.db')
     expect(cfg.apiBearerToken).toBe('tok')
   })
+
+  it('treats empty optional env vars as unset', () => {
+    const cfg = loadConfig({
+      API_BEARER_TOKEN: 'tok',
+      LLM_BASE_URL: '',
+      AGENT_WEBHOOK_URL: '',
+      BACKUP_RCLONE_REMOTE: '',
+    } as any)
+
+    expect(cfg.llm.baseUrl).toBeUndefined()
+    expect(cfg.agent.webhookUrl).toBeUndefined()
+    expect(cfg.backup.rcloneRemote).toBeUndefined()
+  })
 })

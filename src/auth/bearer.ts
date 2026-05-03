@@ -14,12 +14,13 @@ export function bearerAuth(opts: BearerOpts): MiddlewareHandler {
   return async (c: Context, next) => {
     const auth = c.req.header('authorization') ?? ''
     const match = /^Bearer\s+(.+)$/i.exec(auth)
+    const token = match?.[1] ?? c.req.query('t')
 
-    if (!match) {
+    if (!token) {
       return c.json({ error: { code: 'unauthorized', message: 'missing bearer' } }, 401)
     }
 
-    const tokenHash = await hashToken(match[1])
+    const tokenHash = await hashToken(token)
     const row = opts.db
       .query('SELECT user_id FROM api_tokens WHERE token_hash = ?')
       .get(tokenHash) as { user_id: number } | null

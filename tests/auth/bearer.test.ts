@@ -47,4 +47,13 @@ describe('bearerAuth', () => {
     expect(response.status).toBe(200)
     expect(await response.json()).toEqual({ user_id: 1 })
   })
+
+  it('accepts token from query string fallback', async () => {
+    const { app, token } = await setup()
+
+    const response = await app.request(`/me?t=${token}`)
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ user_id: 1 })
+  })
 })
