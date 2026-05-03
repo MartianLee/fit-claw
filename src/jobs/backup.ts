@@ -11,13 +11,18 @@ mkdirSync(dir, { recursive: true })
 const stamp = new Date().toISOString().replace(/[:.]/g, '-')
 const out = join(dir, `fit-claw-${stamp}.db`)
 
+if (!/^[A-Za-z0-9._/\\:-]+$/.test(out)) {
+  console.error('refusing unsafe backup path')
+  process.exit(1)
+}
+
 if (!existsSync(cfg.databasePath)) {
   console.error('db missing')
   process.exit(1)
 }
 
 const src = new Database(cfg.databasePath, { readonly: true })
-src.run(`VACUUM INTO '${out}'`)
+src.run(`VACUUM INTO '${out.replace(/'/g, "''")}'`)
 src.close()
 
 const gz = `${out}.gz`

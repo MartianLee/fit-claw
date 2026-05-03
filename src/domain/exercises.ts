@@ -16,10 +16,10 @@ export type FindResult =
     }
 
 export function findOrProposeExercise(db: Database, query: string): FindResult {
-  const canonicalName = query.trim().toLowerCase()
+  const trimmed = query.trim()
   const direct = db
-    .query('SELECT * FROM exercises WHERE LOWER(canonical_name) = ?')
-    .get(canonicalName) as Exercise | null
+    .query('SELECT * FROM exercises WHERE canonical_name = ? COLLATE NOCASE')
+    .get(trimmed) as Exercise | null
 
   if (direct) return { matched: direct }
 
@@ -27,13 +27,13 @@ export function findOrProposeExercise(db: Database, query: string): FindResult {
     .query(
       'SELECT e.* FROM exercise_aliases a JOIN exercises e ON e.id = a.exercise_id WHERE a.alias = ? COLLATE NOCASE',
     )
-    .get(query.trim()) as Exercise | null
+    .get(trimmed) as Exercise | null
 
   if (aliasHit) return { matched: aliasHit }
 
   return {
     proposed: {
-      canonical_name: canonicalName,
+      canonical_name: trimmed.toLowerCase(),
       body_part: 'unknown',
       equipment: 'unknown',
     },

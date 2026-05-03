@@ -1,9 +1,13 @@
-import { zValidator } from '@hono/zod-validator'
 import type { Database } from 'bun:sqlite'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { queryBody } from '../domain/body'
 import { oneRmDailySeries } from '../domain/stats'
+import { zv } from '../lib/validator'
+
+function isoDateDaysAgo(days: number): string {
+  return new Date(Date.now() - days * 86_400_000).toISOString().slice(0, 10)
+}
 
 export function webApiRoutes(db: Database) {
   const routes = new Hono()
@@ -17,9 +21,9 @@ export function webApiRoutes(db: Database) {
       .query(
         `SELECT COUNT(DISTINCT substr(started_at, 1, 10)) AS n
          FROM workout_sessions
-         WHERE user_id = ? AND started_at >= datetime('now', '-7 days')`,
+         WHERE user_id = ? AND substr(started_at, 1, 10) >= ?`,
       )
-      .get(userId) as { n: number }
+      .get(userId, isoDateDaysAgo(7)) as { n: number }
 
     return c.json({
       weight_kg: latest?.weight_kg ?? null,
@@ -31,7 +35,7 @@ export function webApiRoutes(db: Database) {
 
   routes.get(
     '/api/body-series',
-    zValidator('query', z.object({ days: z.coerce.number().int().positive().max(365).default(180) })),
+    zv('query', z.object({ days: z.coerce.number().int().positive().max(365).default(180) })),
     (c) => {
       const days = c.req.valid('query').days
       const rows = queryBody(db, {
@@ -51,7 +55,7 @@ export function webApiRoutes(db: Database) {
 
   routes.get(
     '/api/onerm-series',
-    zValidator(
+    zv(
       'query',
       z.object({
         exercise_id: z.coerce.number().int(),
@@ -72,7 +76,7 @@ export function webApiRoutes(db: Database) {
 
   routes.get(
     '/api/calendar',
-    zValidator('query', z.object({ weeks: z.coerce.number().int().positive().max(52).default(12) })),
+    zv('query', z.object({ weeks: z.coerce.number().int().positive().max(52).default(12) })),
     (c) => {
       const weeks = c.req.valid('query').weeks
       const rows = db
@@ -81,11 +85,11 @@ export function webApiRoutes(db: Database) {
            FROM workout_sessions s
            LEFT JOIN workout_entries e ON e.session_id = s.id
            LEFT JOIN workout_sets ws ON ws.entry_id = e.id
-           WHERE s.user_id = ? AND s.started_at >= datetime('now', ?)
+           WHERE s.user_id = ? AND substr(s.started_at, 1, 10) >= ?
            GROUP BY substr(s.started_at, 1, 10)
            ORDER BY date`,
         )
-        .all(c.get('userId'), `-${weeks * 7} days`)
+        .all(c.get('userId'), isoDateDaysAgo(weeks * 7))
       return c.json(rows)
     },
   )
@@ -99,10 +103,10 @@ export function webApiRoutes(db: Database) {
          JOIN workout_entries e ON e.session_id = s.id
          JOIN exercises ex ON ex.id = e.exercise_id
          JOIN workout_sets ws ON ws.entry_id = e.id
-         WHERE s.user_id = ? AND s.started_at >= datetime('now', '-7 days')
+         WHERE s.user_id = ? AND substr(s.started_at, 1, 10) >= ?
          ORDER BY s.started_at DESC, e.sequence, ws.set_number`,
       )
-      .all(c.get('userId'))
+      .all(c.get('userId'), isoDateDaysAgo(7))
     return c.json(rows)
   })
 

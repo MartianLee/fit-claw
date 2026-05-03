@@ -1,12 +1,15 @@
 import type { Database } from 'bun:sqlite'
 import { Hono } from 'hono'
-import { bearerAuth } from './auth/bearer'
+import { setCookie } from 'hono/cookie'
+import { SESSION_COOKIE, bearerAuth } from './auth/bearer'
 import { loadConfig } from './config'
 import { getDb } from './db/client'
 import { errorJson } from './lib/http'
 import { mountTools } from './tools'
 import { webApiRoutes } from './web/api'
 import { renderDashboard } from './web/dashboard'
+
+const SESSION_MAX_AGE_SEC = 60 * 60 * 24 * 30
 
 export function createApp(db?: Database) {
   const app = new Hono()
@@ -20,15 +23,27 @@ export function createApp(db?: Database) {
     app.use('/api/*', bearerAuth({ db }))
     mountTools(app, { db })
     app.route('/', webApiRoutes(db))
+
     app.get('/static/*', async (c) => {
-      const path = c.req.path.replace('/static/', '')
+      const path = c.req.path.slice('/static/'.length)
+      if (path.includes('..') || path.startsWith('/')) return c.notFound()
       const file = Bun.file(`src/web/static/${path}`)
       if (!(await file.exists())) return c.notFound()
       return new Response(file)
     })
-    app.get('/', bearerAuth({ db }), (c) =>
-      c.html(renderDashboard(db, c.get('userId'), c.req.query('t') ?? '').toString()),
-    )
+
+    app.get('/', bearerAuth({ db, allowQueryToken: true }), (c) => {
+      if (c.req.query('t')) {
+        setCookie(c, SESSION_COOKIE, c.get('sessionToken'), {
+          httpOnly: true,
+          sameSite: 'Strict',
+          path: '/',
+          maxAge: SESSION_MAX_AGE_SEC,
+        })
+        return c.redirect('/', 303)
+      }
+      return c.html(renderDashboard(db, c.get('userId')).toString())
+    })
   }
 
   return app

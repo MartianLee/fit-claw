@@ -1,12 +1,14 @@
 import { Database } from 'bun:sqlite'
 import { mkdirSync } from 'node:fs'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { loadMigrationsFromDir, runMigrations } from './migrate'
 
-let dbInstance: Database | null = null
+const instances = new Map<string, Database>()
 
 export function getDb(path: string): Database {
-  if (dbInstance) return dbInstance
+  const key = resolve(path)
+  const cached = instances.get(key)
+  if (cached) return cached
 
   mkdirSync(dirname(path), { recursive: true })
   const db = new Database(path)
@@ -16,6 +18,6 @@ export function getDb(path: string): Database {
   const files = loadMigrationsFromDir(join(import.meta.dir, 'migrations'))
   runMigrations(db, files)
 
-  dbInstance = db
+  instances.set(key, db)
   return db
 }

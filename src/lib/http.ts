@@ -10,11 +10,16 @@ export class HttpError extends Error {
   }
 }
 
+export function scrubToken(input: string): string {
+  return input.replace(/([?&])t=[^&\s]+/g, '$1t=REDACTED')
+}
+
 export function errorJson(c: Context, err: unknown) {
   if (err instanceof HttpError) {
     return c.json({ error: { code: err.code, message: err.message } }, err.status as any)
   }
 
-  console.error(err)
+  const detail = err instanceof Error ? err.stack ?? err.message : String(err)
+  console.error(scrubToken(detail))
   return c.json({ error: { code: 'internal', message: 'internal error' } }, 500)
 }

@@ -1,15 +1,18 @@
 import type { FC } from 'hono/jsx'
 
-export const StatCard: FC<{ label: string; value: string | number; unit?: string }> = ({
+export const StatCard: FC<{ label: string; value: string | number | null; unit?: string }> = ({
   label,
   value,
   unit,
-}) => (
-  <div class="card">
-    <div class="label">{label}</div>
+}) => {
+  const empty = value == null || value === ''
+  return (
     <div class="stat">
-      {value}
-      {unit ? <span style="font-size:14px; color:#8a93a0;"> {unit}</span> : null}
+      <div class="label">{label}</div>
+      <div class="value">
+        {empty ? <span class="empty">—</span> : value}
+        {!empty && unit ? <span class="unit">{unit}</span> : null}
+      </div>
     </div>
-  </div>
-)
+  )
+}

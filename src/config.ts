@@ -4,7 +4,7 @@ const Schema = z.object({
   PORT: z.coerce.number().default(3000),
   DATABASE_PATH: z.string().default('./data/fit-claw.db'),
   DEFAULT_USER_ID: z.coerce.number().default(1),
-  API_BEARER_TOKEN: z.string().min(1),
+  API_BEARER_TOKEN: z.string().min(16),
   LLM_PROVIDER: z.string().default('gemini'),
   LLM_BASE_URL: z.string().url().optional(),
   LLM_API_KEY: z.string().optional(),
