@@ -1,8 +1,8 @@
-import { zValidator } from '@hono/zod-validator'
 import type { Database } from 'bun:sqlite'
 import { Hono } from 'hono'
 import { z } from 'zod'
 import { createWorkoutEntry, deleteSet, queryWorkouts, recentWorkouts, updateSet } from '../domain/workouts'
+import { zv } from '../lib/validator'
 
 const SetSchema = z.object({
   weight_kg: z.number(),
@@ -19,7 +19,7 @@ export function workoutsRoutes(db: Database) {
 
   routes.post(
     '/create_workout_entry',
-    zValidator(
+    zv(
       'json',
       z.object({
         exercise_id: z.number().int(),
@@ -35,7 +35,7 @@ export function workoutsRoutes(db: Database) {
 
   routes.post(
     '/query_workouts',
-    zValidator(
+    zv(
       'json',
       z.object({
         date_from: z.string().optional(),
@@ -48,13 +48,13 @@ export function workoutsRoutes(db: Database) {
 
   routes.post(
     '/recent_workouts',
-    zValidator('json', z.object({ days: z.number().int().positive().max(60).optional() })),
+    zv('json', z.object({ days: z.number().int().positive().max(60).optional() })),
     (c) => c.json(recentWorkouts(db, { user_id: c.get('userId'), ...c.req.valid('json') })),
   )
 
   routes.post(
     '/update_set',
-    zValidator('json', z.object({ set_id: z.number().int(), patch: SetSchema.partial() })),
+    zv('json', z.object({ set_id: z.number().int(), patch: SetSchema.partial() })),
     (c) => {
       const { set_id, patch } = c.req.valid('json')
       return c.json(updateSet(db, set_id, patch))
@@ -63,7 +63,7 @@ export function workoutsRoutes(db: Database) {
 
   routes.post(
     '/delete_set',
-    zValidator('json', z.object({ set_id: z.number().int() })),
+    zv('json', z.object({ set_id: z.number().int() })),
     (c) => {
       deleteSet(db, c.req.valid('json').set_id)
       return c.json({ ok: true })
@@ -72,7 +72,7 @@ export function workoutsRoutes(db: Database) {
 
   routes.post(
     '/set_workout_detail_mode',
-    zValidator('json', z.object({ mode: z.enum(['basic', 'detailed']) })),
+    zv('json', z.object({ mode: z.enum(['basic', 'detailed']) })),
     (c) => {
       db.run('UPDATE users SET workout_detail_mode = ? WHERE id = ?', [
         c.req.valid('json').mode,
