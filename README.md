@@ -8,7 +8,7 @@ The current v1 tracks weight training sessions, body measurements, estimated 1RM
 
 - Agent-first input: agents call `/tools/*` endpoints with JSON, so the human can log workouts through chat instead of forms.
 - Deterministic backend: no LLM logic is needed for core data correctness; the backend handles CRUD, validation, stats, auth, and migrations.
-- Simple self-hosting: Bun + SQLite + launchd keeps the operational surface small.
+- Simple self-hosting: Docker Compose is the easiest path; Bun + SQLite + launchd remains available for Mac mini installs.
 - Personal data ownership: the default deployment path is a private Mac mini, reachable through Tailscale and optionally Cloudflare Tunnel for future import webhooks.
 - Read-only dashboard: the web UI is for quick review, not data entry, so input stays consistent through the agent.
 
@@ -20,9 +20,72 @@ The current v1 tracks weight training sessions, body measurements, estimated 1RM
 - Validation: Zod + `@hono/zod-validator`
 - Web: Hono JSX SSR, htmx, Chart.js
 - Auth: bearer tokens stored as SHA-256 hashes
-- Ops: launchd, `VACUUM INTO` backups, optional rclone
+- Ops: Docker Compose, launchd, `VACUUM INTO` backups, optional rclone
 
 ## Quick Start
+
+### Docker Compose
+
+This is the recommended path for self-hosting from a fresh clone.
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` and set at least:
+
+```bash
+API_BEARER_TOKEN=replace-with-a-long-random-bootstrap-token
+PORT=3000
+```
+
+Build and start the service:
+
+```bash
+docker compose up -d --build
+```
+
+The Compose setup stores SQLite data in the named volume `fit-claw-data` at `/app/data/fit-claw.db` inside the container.
+
+Create a dashboard or agent token:
+
+```bash
+docker compose run --rm fit-claw bun run scripts/new-token.ts dashboard
+```
+
+Seed the exercise catalog:
+
+```bash
+docker compose run --rm fit-claw bun run scripts/seed-exercises.ts
+```
+
+Smoke checks:
+
+```bash
+curl http://localhost:3000/healthz
+curl -X POST http://localhost:3000/tools/find_or_propose_exercise \
+  -H "authorization: Bearer <token>" \
+  -H "content-type: application/json" \
+  -d '{"query":"bench press"}'
+```
+
+Open the dashboard:
+
+```text
+http://localhost:3000/?t=<token>
+```
+
+The first dashboard visit with `?t=` sets an `HttpOnly` session cookie and redirects to `/`, so the token is not kept in the browser URL.
+
+Useful Docker commands:
+
+```bash
+docker compose logs -f fit-claw
+docker compose restart fit-claw
+docker compose down
+```
+
+### Local Bun
 
 ```bash
 bun install
@@ -77,7 +140,7 @@ Open the dashboard inside your private network:
 http://localhost:3000/?t=<token>
 ```
 
-The dashboard route still expects a bearer header for direct HTTP requests. The `?t=` token is used by browser-side chart requests.
+The first dashboard visit with `?t=` sets an `HttpOnly` session cookie and redirects to `/`.
 
 ## Agent Integration
 

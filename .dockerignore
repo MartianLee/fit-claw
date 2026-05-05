@@ -1,0 +1,13 @@
+.beads
+.claude
+.dolt
+.git
+.gitignore
+.DS_Store
+.env
+data
+node_modules
+*.log
+docs
+deploy
+tests

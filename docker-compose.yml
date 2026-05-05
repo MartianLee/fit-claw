@@ -1,0 +1,30 @@
+services:
+  fit-claw:
+    build:
+      context: .
+    image: fit-claw:local
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      PORT: ${PORT:-3000}
+      DATABASE_PATH: /app/data/fit-claw.db
+    ports:
+      - "${PORT:-3000}:3000"
+    volumes:
+      - fit-claw-data:/app/data
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bun",
+          "-e",
+          "const port = process.env.PORT || '3000'; const r = await fetch('http://127.0.0.1:' + port + '/healthz'); process.exit(r.ok ? 0 : 1)",
+        ]
+      interval: 30s
+      timeout: 5s
+      start_period: 10s
+      retries: 3
+
+volumes:
+  fit-claw-data:
