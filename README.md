@@ -1,5 +1,7 @@
 # fit-claw
 
+English | [한국어](./docs/i18n/README.ko.md)
+
 fit-claw is a small, self-hosted fitness logging backend built for agent-first workflows. It is not trying to be a full workout app. The intended interface is a Telegram, Slack, or local agent that turns natural language into structured tool calls, while this service stays focused on storage, validation, stats, dashboards, and backups.
 
 The current v1 tracks weight training sessions, body measurements, estimated 1RM trends, recent activity, and dashboard aggregates. It runs comfortably on a Mac mini with Bun, Hono, and a single SQLite database.
