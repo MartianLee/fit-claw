@@ -81,7 +81,8 @@ export function webApiRoutes(db: Database) {
       const weeks = c.req.valid('query').weeks
       const rows = db
         .query(
-          `SELECT substr(s.started_at, 1, 10) AS date, COALESCE(SUM(ws.weight_kg * ws.reps), 0) AS volume
+          `SELECT substr(s.started_at, 1, 10) AS date,
+                  COALESCE(SUM(ws.weight_kg * ws.reps * CASE WHEN ws.side_mode = 'each_side' THEN 2 ELSE 1 END), 0) AS volume
            FROM workout_sessions s
            LEFT JOIN workout_entries e ON e.session_id = s.id
            LEFT JOIN workout_sets ws ON ws.entry_id = e.id

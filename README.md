@@ -65,10 +65,10 @@ Smoke checks:
 
 ```bash
 curl http://localhost:3000/healthz
-curl -X POST http://localhost:3000/tools/find_or_propose_exercise \
+curl -X POST http://localhost:3000/tools/log_workout \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
-  -d '{"query":"bench press"}'
+  -d '{"exercise":"bench press","sets":[{"weight_kg":80,"reps":5}]}'
 ```
 
 Open the dashboard:
@@ -130,10 +130,10 @@ Smoke checks:
 
 ```bash
 curl http://localhost:3000/healthz
-curl -X POST http://localhost:3000/tools/find_or_propose_exercise \
+curl -X POST http://localhost:3000/tools/log_workout \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
-  -d '{"query":"bench press"}'
+  -d '{"exercise":"bench press","sets":[{"weight_kg":80,"reps":5}]}'
 ```
 
 Open the dashboard inside your private network:
@@ -148,8 +148,11 @@ The first dashboard visit with `?t=` sets an `HttpOnly` session cookie and redir
 
 Agents should treat fit-claw as a structured tool backend. Natural language parsing belongs in the agent; fit-claw expects validated JSON.
 
+For normal workout logging, agents should call `POST /tools/log_workout` first. It accepts an exercise name or alias, auto-creates unknown exercises instead of dropping the record, and applies unilateral defaults such as `each_side` for one-arm or one-leg movements. The lower-level exercise and entry tools remain available for manual correction and advanced flows.
+
 Core tool endpoints:
 
+- `POST /tools/log_workout`
 - `POST /tools/find_or_propose_exercise`
 - `POST /tools/confirm_new_exercise`
 - `POST /tools/create_workout_entry`
@@ -164,17 +167,31 @@ Core tool endpoints:
 Example workout log:
 
 ```bash
-curl -X POST http://localhost:3000/tools/create_workout_entry \
+curl -X POST http://localhost:3000/tools/log_workout \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
   -d '{
-    "exercise_id": 1,
+    "exercise": "덤벨 로우",
     "sets": [
-      { "weight_kg": 80, "reps": 5 },
-      { "weight_kg": 80, "reps": 5 },
-      { "weight_kg": 75, "reps": 8 }
+      { "weight_kg": 24, "reps": 10 },
+      { "weight_kg": 24, "reps": 10 }
     ]
   }'
+```
+
+For unilateral exercises, omit `side_mode` unless the left and right sides differ. The backend defaults known unilateral movements to `each_side`. If sides differ, send separate sets:
+
+```json
+[
+  { "weight_kg": 24, "reps": 10, "side_mode": "single_side", "side": "left" },
+  { "weight_kg": 22, "reps": 10, "side_mode": "single_side", "side": "right" }
+]
+```
+
+To import additional permissively licensed exercise lists, see `docs/exercise-sources.md` and run:
+
+```bash
+bun run scripts/import-external-exercises.ts path/to/exercises.json
 ```
 
 Example body measurement:
