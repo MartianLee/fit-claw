@@ -3,6 +3,8 @@ import type { Database } from 'bun:sqlite'
 export type SetInput = {
   weight_kg: number
   reps: number
+  side_mode?: 'none' | 'each_side' | 'single_side'
+  side?: 'left' | 'right'
   rpe?: number
   rir?: number
   rest_sec?: number
@@ -41,6 +43,8 @@ export type WorkoutSet = {
   set_number: number
   weight_kg: number
   reps: number
+  side_mode: 'none' | 'each_side' | 'single_side'
+  side: 'left' | 'right' | null
   rpe: number | null
   rir: number | null
   rest_sec: number | null
@@ -84,12 +88,14 @@ export function createWorkoutEntry(db: Database, input: CreateEntryInput) {
     let setNumber = 1
     for (const set of input.sets) {
       const setResult = db.run(
-        'INSERT INTO workout_sets(entry_id, set_number, weight_kg, reps, rpe, rir, rest_sec, tempo, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        'INSERT INTO workout_sets(entry_id, set_number, weight_kg, reps, side_mode, side, rpe, rir, rest_sec, tempo, notes) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
         [
           entryId,
           setNumber++,
           set.weight_kg,
           set.reps,
+          set.side_mode ?? 'none',
+          set.side ?? null,
           set.rpe ?? null,
           set.rir ?? null,
           set.rest_sec ?? null,
@@ -169,7 +175,7 @@ export function recentWorkouts(db: Database, query: { user_id: number; days?: nu
 }
 
 export function updateSet(db: Database, id: number, patch: Partial<SetInput>): WorkoutSet {
-  const fields = ['weight_kg', 'reps', 'rpe', 'rir', 'rest_sec', 'tempo', 'notes'] as const
+  const fields = ['weight_kg', 'reps', 'side_mode', 'side', 'rpe', 'rir', 'rest_sec', 'tempo', 'notes'] as const
   const updates: string[] = []
   const values: (string | number | null)[] = []
 

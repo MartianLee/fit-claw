@@ -71,6 +71,25 @@ describe('createWorkoutEntry', () => {
     expect(result.sets.length).toBe(1)
   })
 
+  it('stores unilateral set metadata', () => {
+    const db = makeTestDb()
+    const exerciseId = seedBench(db)
+
+    const result = createWorkoutEntry(db, {
+      user_id: 1,
+      exercise_id: exerciseId,
+      sets: [
+        { weight_kg: 24, reps: 10, side_mode: 'each_side' },
+        { weight_kg: 22, reps: 10, side_mode: 'single_side', side: 'right' },
+      ],
+    })
+
+    expect(result.sets[0]?.side_mode).toBe('each_side')
+    expect(result.sets[0]?.side).toBeNull()
+    expect(result.sets[1]?.side_mode).toBe('single_side')
+    expect(result.sets[1]?.side).toBe('right')
+  })
+
   it('queryWorkouts filters by date range and exercise', () => {
     const db = makeTestDb()
     const exerciseId = seedBench(db)
