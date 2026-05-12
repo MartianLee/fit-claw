@@ -52,18 +52,24 @@ bd close <id>         # Complete work
 
 ## Build & Test
 
-_Add your build and test commands here_
-
 ```bash
-# Example:
-# npm install
-# npm test
+bun install
+bun test
+bunx tsc --noEmit
+bun run dev          # local server at PORT (default 3000)
 ```
+
+Bun is required (`~/.bun/bin/bun`). Tests use in-memory SQLite via `tests/helpers/db.ts::makeTestDb()`.
 
 ## Architecture Overview
 
-_Add a brief overview of your project architecture_
+Self-hosted, single-user fitness backend optimized for agent-first input. Bun + Hono + `bun:sqlite`, Hono JSX SSR dashboard, bearer auth with SHA-256 hashed tokens + `fc_session` HttpOnly cookie. Layout: `src/{auth,db,domain,lib,tools,web,jobs}`, migrations in `src/db/migrations/`, deploy artifacts in `deploy/`.
 
 ## Conventions & Patterns
 
-_Add your project-specific conventions here_
+- **Validation**: always go through `zv()` in `src/lib/validator.ts` (never raw `zValidator`) so 400 responses keep the unified `{error:{code:"invalid_input",message}}` shape.
+- **Errors**: `throw new HttpError(status, code, message)` from `src/lib/http.ts`; `app.onError(errorJson)` converts to JSON.
+- **Auth context**: routes read `c.get('userId')` set by `bearerAuth` middleware. `/tools/*`, `/api/*`, `/import/*` reject `?t=` query tokens; only `/` accepts them and rotates to cookie.
+- **Tool routes**: mirror existing files in `src/tools/`. Mount via `mountTools()` in `src/tools/index.ts`.
+- **Backend absorbs agent imprecision**: when a tool API has subtle semantics (patch vs append, idempotency, length caps), prefer encoding the safety net in the backend over expecting agents to read docs carefully. Example: `daily_checkins.notes` is append-with-dedupe rather than patch, so retried or naive calls do the right thing.
+- **End-to-end agent smoke before significant commits**: for changes that touch the agent surface (`/tools/*`, README install flow, seed data, validation), run a live `bun run src/server.ts` + `curl` round-trip simulating the README's quick-start before committing. Catches issues like raw Zod errors leaking or missing exercise aliases that unit tests do not surface.
