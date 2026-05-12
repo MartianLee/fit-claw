@@ -16,6 +16,11 @@ async function setup() {
     'test',
   ])
   db.run('INSERT INTO exercises(canonical_name, body_part, equipment) VALUES("bench press", "chest", "barbell")')
+  const rowId = db.run(
+    `INSERT INTO exercises(canonical_name, body_part, equipment, default_side_mode)
+     VALUES("dumbbell row", "back", "dumbbell", "each_side")`,
+  ).lastInsertRowid
+  db.run('INSERT INTO exercise_aliases(exercise_id, alias) VALUES (?, ?)', [Number(rowId), '덤벨 로우'])
 
   const app = new Hono()
   app.use('/tools/*', bearerAuth({ db }))
@@ -73,5 +78,58 @@ describe('tools/workouts', () => {
     expect(response.status).toBe(200)
     const json = await response.json()
     expect(json.sets.length).toBe(1)
+  })
+
+  it('log_workout logs alias with unilateral defaults', async () => {
+    const { app, token } = await setup()
+
+    const response = await app.request('/tools/log_workout', {
+      method: 'POST',
+      body: JSON.stringify({
+        exercise: '덤벨 로우',
+        sets: [{ weight_kg: 24, reps: 10 }],
+      }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    })
+
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.status).toBe('logged')
+    expect(json.exercise_created).toBe(false)
+    expect(json.sets[0].side_mode).toBe('each_side')
+  })
+
+  it('log_workout auto-creates unknown exercises', async () => {
+    const { app, token } = await setup()
+
+    const response = await app.request('/tools/log_workout', {
+      method: 'POST',
+      body: JSON.stringify({
+        exercise: 'single arm cable row',
+        sets: [{ weight_kg: 25, reps: 12 }],
+      }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    })
+
+    expect(response.status).toBe(200)
+    const json = await response.json()
+    expect(json.exercise_created).toBe(true)
+    expect(json.needs_review).toBe(true)
+    expect(json.sets[0].side_mode).toBe('each_side')
+  })
+
+  it('log_workout rejects invalid side combinations', async () => {
+    const { app, token } = await setup()
+
+    const response = await app.request('/tools/log_workout', {
+      method: 'POST',
+      body: JSON.stringify({
+        exercise: 'bench press',
+        sets: [{ weight_kg: 80, reps: 5, side_mode: 'each_side', side: 'left' }],
+      }),
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
+    })
+
+    expect(response.status).toBe(400)
   })
 })

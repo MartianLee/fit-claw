@@ -1,12 +1,21 @@
 import type { Database } from 'bun:sqlite'
 import { Hono } from 'hono'
 import { z } from 'zod'
-import { createWorkoutEntry, deleteSet, queryWorkouts, recentWorkouts, updateSet } from '../domain/workouts'
+import {
+  createWorkoutEntry,
+  deleteSet,
+  logWorkout,
+  queryWorkouts,
+  recentWorkouts,
+  updateSet,
+} from '../domain/workouts'
 import { zv } from '../lib/validator'
 
-const SetSchema = z.object({
-  weight_kg: z.number(),
+const BaseSetSchema = z.object({
+  weight_kg: z.number().nonnegative(),
   reps: z.number().int().nonnegative(),
+  side_mode: z.enum(['none', 'each_side', 'single_side']).optional(),
+  side: z.enum(['left', 'right']).optional(),
   rpe: z.number().optional(),
   rir: z.number().int().optional(),
   rest_sec: z.number().int().optional(),
@@ -14,8 +23,41 @@ const SetSchema = z.object({
   notes: z.string().optional(),
 })
 
+const SetSchema = BaseSetSchema.superRefine((set, ctx) => {
+  if (set.side_mode === 'single_side' && !set.side) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['side'],
+      message: 'side is required when side_mode is single_side',
+    })
+  }
+  if (set.side_mode !== 'single_side' && set.side) {
+    ctx.addIssue({
+      code: 'custom',
+      path: ['side'],
+      message: 'side is only allowed when side_mode is single_side',
+    })
+  }
+})
+
 export function workoutsRoutes(db: Database) {
   const routes = new Hono()
+
+  routes.post(
+    '/log_workout',
+    zv(
+      'json',
+      z.object({
+        exercise: z.string().trim().min(1),
+        sets: z.array(SetSchema).min(1),
+        session_id: z.number().int().optional(),
+        started_at: z.string().optional(),
+        ended_at: z.string().optional(),
+        notes: z.string().optional(),
+      }),
+    ),
+    (c) => c.json(logWorkout(db, { user_id: c.get('userId'), ...c.req.valid('json') })),
+  )
 
   routes.post(
     '/create_workout_entry',
@@ -54,7 +96,7 @@ export function workoutsRoutes(db: Database) {
 
   routes.post(
     '/update_set',
-    zv('json', z.object({ set_id: z.number().int(), patch: SetSchema.partial() })),
+    zv('json', z.object({ set_id: z.number().int(), patch: BaseSetSchema.partial() })),
     (c) => {
       const { set_id, patch } = c.req.valid('json')
       return c.json(updateSet(db, set_id, patch))
