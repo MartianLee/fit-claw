@@ -163,6 +163,12 @@ Core tool endpoints:
 - `POST /tools/set_workout_detail_mode`
 - `POST /tools/log_body_measurement`
 - `POST /tools/query_body`
+- `POST /tools/predict_performance`
+- `POST /tools/predict_series`
+- `POST /tools/refit_prediction_models`
+- `POST /tools/create_alarm_rule`
+- `POST /tools/list_alarm_rules`
+- `POST /tools/disable_alarm_rule`
 
 Example workout log:
 
@@ -203,6 +209,26 @@ curl -X POST http://localhost:3000/tools/log_body_measurement \
   -d '{"weight_kg":72.5,"source":"manual"}'
 ```
 
+Example performance prediction:
+
+```bash
+curl -X POST http://localhost:3000/tools/predict_performance \
+  -H "authorization: Bearer <token>" \
+  -H "content-type: application/json" \
+  -d '{"exercise_id":1,"target_date":"2026-06-01"}'
+```
+
+Example threshold alarm:
+
+```bash
+curl -X POST http://localhost:3000/tools/create_alarm_rule \
+  -H "authorization: Bearer <token>" \
+  -H "content-type: application/json" \
+  -d '{"scope":"exercise","exercise_id":1,"threshold_type":"1rm_below","threshold_value":95}'
+```
+
+Prediction tools fit and refresh the `prediction_models` cache automatically. Alarm evaluation is a job, not a request-time side effect. Configure `AGENT_WEBHOOK_URL` for agent delivery and `TELEGRAM_BOT_TOKEN` plus `TELEGRAM_CHAT_ID` for fallback delivery.
+
 ## Data Model
 
 v1 uses a compact schema:
@@ -226,6 +252,26 @@ The SSR dashboard consumes these bearer-protected JSON endpoints:
 - `GET /api/recent-activity`
 
 In production, put the dashboard and `/api/*` behind Tailscale or an equivalent private network boundary.
+
+## Jobs
+
+Refit all prediction models for the default user:
+
+```bash
+bun run job:refit-predictions
+```
+
+Evaluate enabled alarm rules once. Schedule this daily with cron, launchd, or your container scheduler:
+
+```bash
+bun run job:evaluate-alarms
+```
+
+With Docker Compose:
+
+```bash
+docker compose run --rm fit-claw bun run job:evaluate-alarms
+```
 
 ## Backup
 

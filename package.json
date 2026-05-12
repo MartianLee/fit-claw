@@ -5,7 +5,9 @@
   "scripts": {
     "dev": "bun --watch src/server.ts",
     "start": "bun src/server.ts",
-    "test": "bun test"
+    "test": "bun test",
+    "job:refit-predictions": "bun src/jobs/refit-predictions.ts",
+    "job:evaluate-alarms": "bun src/jobs/evaluate-alarms.ts"
   },
   "dependencies": {
     "@hono/zod-validator": "^0.7.6",
