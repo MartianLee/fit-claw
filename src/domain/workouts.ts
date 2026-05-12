@@ -1,4 +1,5 @@
 import type { Database } from 'bun:sqlite'
+import { createAutoExercise, findExercise, type Exercise } from './exercises'
 
 export type SetInput = {
   weight_kg: number
@@ -111,6 +112,74 @@ export function createWorkoutEntry(db: Database, input: CreateEntryInput) {
     const entry = db.query('SELECT * FROM workout_entries WHERE id = ?').get(entryId) as WorkoutEntry
     return { session, entry, sets }
   })()
+}
+
+export type LogWorkoutInput = {
+  user_id: number
+  exercise: string
+  sets: SetInput[]
+  session_id?: number
+  started_at?: string
+  ended_at?: string
+  notes?: string
+}
+
+export type LogWorkoutResult = ReturnType<typeof createWorkoutEntry> & {
+  status: 'logged'
+  exercise_created: boolean
+  needs_review: boolean
+  applied_defaults: { side_mode: 'none' | 'each_side' }
+  created_exercise?: Exercise
+}
+
+function validateSetInput(set: SetInput): void {
+  if (set.weight_kg < 0) throw new Error('weight_kg must be nonnegative')
+  if (set.reps < 0) throw new Error('reps must be nonnegative')
+  if (set.side_mode === 'single_side' && !set.side) {
+    throw new Error('side is required when side_mode is single_side')
+  }
+  if (set.side_mode !== 'single_side' && set.side) {
+    throw new Error('side is only allowed when side_mode is single_side')
+  }
+}
+
+export function logWorkout(db: Database, input: LogWorkoutInput): LogWorkoutResult {
+  if (input.sets.length === 0) throw new Error('sets must not be empty')
+
+  let exercise = findExercise(db, input.exercise)
+  const exercise_created = !exercise
+  if (!exercise) exercise = createAutoExercise(db, input.exercise)
+
+  const defaultSideMode = exercise.default_side_mode ?? 'none'
+  const sets = input.sets.map((set) => {
+    const side_mode = set.side_mode ?? defaultSideMode
+    validateSetInput({ ...set, side_mode })
+    const normalized: SetInput = {
+      ...set,
+      side_mode,
+      side: side_mode === 'single_side' ? set.side : undefined,
+    }
+    return normalized
+  })
+
+  const created = createWorkoutEntry(db, {
+    user_id: input.user_id,
+    exercise_id: exercise.id,
+    sets,
+    session_id: input.session_id,
+    started_at: input.started_at,
+    ended_at: input.ended_at,
+    notes: input.notes,
+  })
+
+  return {
+    status: 'logged',
+    exercise_created,
+    needs_review: exercise.needs_review === 1,
+    applied_defaults: { side_mode: defaultSideMode },
+    created_exercise: exercise_created ? exercise : undefined,
+    ...created,
+  }
 }
 
 export type QueryWorkoutsInput = {

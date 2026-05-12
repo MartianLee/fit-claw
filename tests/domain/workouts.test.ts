@@ -2,6 +2,7 @@ import { describe, expect, it } from 'bun:test'
 import {
   createWorkoutEntry,
   deleteSet,
+  logWorkout,
   queryWorkouts,
   recentWorkouts,
   updateSet,
@@ -157,5 +158,92 @@ describe('createWorkoutEntry', () => {
     deleteSet(db, result.sets[0]!.id)
 
     expect(db.query('SELECT COUNT(*) AS n FROM workout_sets').get()).toEqual({ n: 0 })
+  })
+})
+
+describe('logWorkout', () => {
+  it('logs by alias and applies exercise default each_side', () => {
+    const db = makeTestDb()
+    const id = Number(
+      db.run(
+        `INSERT INTO exercises(canonical_name, body_part, equipment, default_side_mode)
+         VALUES("dumbbell row", "back", "dumbbell", "each_side")`,
+      ).lastInsertRowid,
+    )
+    db.run('INSERT INTO exercise_aliases(exercise_id, alias) VALUES (?, ?)', [id, '덤벨 로우'])
+
+    const result = logWorkout(db, {
+      user_id: 1,
+      exercise: '덤벨 로우',
+      sets: [{ weight_kg: 24, reps: 10 }],
+    })
+
+    expect(result.status).toBe('logged')
+    expect(result.exercise_created).toBe(false)
+    expect(result.entry.exercise_id).toBe(id)
+    expect(result.sets[0]?.side_mode).toBe('each_side')
+    expect(result.applied_defaults.side_mode).toBe('each_side')
+  })
+
+  it('auto-creates unknown exercises and still logs the workout', () => {
+    const db = makeTestDb()
+
+    const result = logWorkout(db, {
+      user_id: 1,
+      exercise: 'single arm cable row',
+      sets: [{ weight_kg: 25, reps: 12 }],
+    })
+
+    const exercise = db
+      .query('SELECT * FROM exercises WHERE id = ?')
+      .get(result.entry.exercise_id) as {
+      canonical_name: string
+      body_part: string
+      equipment: string
+      source: string
+      needs_review: number
+    }
+
+    expect(result.exercise_created).toBe(true)
+    expect(result.needs_review).toBe(true)
+    expect(result.created_exercise?.canonical_name).toBe('single arm cable row')
+    expect(exercise.source).toBe('auto_created')
+    expect(exercise.needs_review).toBe(1)
+    expect(result.sets[0]?.side_mode).toBe('each_side')
+  })
+
+  it('defaults bilateral exercises to none', () => {
+    const db = makeTestDb()
+    seedBench(db)
+
+    const result = logWorkout(db, {
+      user_id: 1,
+      exercise: 'bench press',
+      sets: [{ weight_kg: 80, reps: 5 }],
+    })
+
+    expect(result.sets[0]?.side_mode).toBe('none')
+    expect(result.applied_defaults.side_mode).toBe('none')
+  })
+
+  it('rejects invalid side combinations', () => {
+    const db = makeTestDb()
+    seedBench(db)
+
+    expect(() =>
+      logWorkout(db, {
+        user_id: 1,
+        exercise: 'bench press',
+        sets: [{ weight_kg: 80, reps: 5, side_mode: 'single_side' }],
+      }),
+    ).toThrow(/side is required/)
+
+    expect(() =>
+      logWorkout(db, {
+        user_id: 1,
+        exercise: 'bench press',
+        sets: [{ weight_kg: 80, reps: 5, side_mode: 'each_side', side: 'left' }],
+      }),
+    ).toThrow(/side is only allowed/)
   })
 })
