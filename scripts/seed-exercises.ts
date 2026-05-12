@@ -1,11 +1,13 @@
 import { loadConfig } from '../src/config'
 import { getDb } from '../src/db/client'
+import { inferDefaultSideMode } from '../src/domain/exercises'
 
 type Seed = {
   canonical: string
   body_part: string
   equipment: string
   is_bodyweight?: boolean
+  default_side_mode?: 'none' | 'each_side'
   aliases: string[]
 }
 
@@ -55,13 +57,46 @@ const SEEDS: Seed[] = [
   { canonical: 'ab wheel rollout', body_part: 'core', equipment: 'bodyweight', is_bodyweight: true, aliases: ['ab roller', '앱 롤러', '앱롤러', '앱휠', '복근롤러'] },
   { canonical: 'kettlebell swing', body_part: 'full', equipment: 'kettlebell', aliases: ['kb swing', 'kbs', '케틀벨 스윙', '케틀벨스윙'] },
   { canonical: 'farmers walk', body_part: 'full', equipment: 'dumbbell', aliases: ["farmer's walk", '파머스 워크', '파머스워크'] },
+  { canonical: 'machine chest press', body_part: 'chest', equipment: 'machine', aliases: ['chest press machine', '체스트 프레스', '체스트프레스'] },
+  { canonical: 'pec deck fly', body_part: 'chest', equipment: 'machine', aliases: ['pec deck', '펙덱 플라이', '펙덱플라이', '팩덱'] },
+  { canonical: 'cable fly', body_part: 'chest', equipment: 'cable', aliases: ['케이블 플라이', '케이블플라이'] },
+  { canonical: 't bar row', body_part: 'back', equipment: 'machine', aliases: ['t-bar row', '티바 로우', '티바로우'] },
+  { canonical: 'chest supported row', body_part: 'back', equipment: 'machine', aliases: ['체스트 서포티드 로우', '체스트서포티드로우'] },
+  { canonical: 'machine row', body_part: 'back', equipment: 'machine', aliases: ['머신 로우', '머신로우'] },
+  { canonical: 'straight arm pulldown', body_part: 'back', equipment: 'cable', aliases: ['straight-arm pulldown', '스트레이트 암 풀다운', '암 풀다운'] },
+  { canonical: 'single arm cable row', body_part: 'back', equipment: 'cable', default_side_mode: 'each_side', aliases: ['one arm cable row', '원암 케이블 로우', '원암케이블로우'] },
+  { canonical: 'arnold press', body_part: 'shoulder', equipment: 'dumbbell', aliases: ['아놀드 프레스', '아놀드프레스'] },
+  { canonical: 'cable lateral raise', body_part: 'shoulder', equipment: 'cable', default_side_mode: 'each_side', aliases: ['케이블 레터럴 레이즈', '케이블 사레레'] },
+  { canonical: 'shrug', body_part: 'shoulder', equipment: 'dumbbell', aliases: ['dumbbell shrug', '슈러그', '덤벨 슈러그'] },
+  { canonical: 'leg raise', body_part: 'core', equipment: 'bodyweight', is_bodyweight: true, aliases: ['lying leg raise', '누워서 레그레이즈'] },
+  { canonical: 'cable crunch', body_part: 'core', equipment: 'cable', aliases: ['케이블 크런치', '케이블크런치'] },
+  { canonical: 'glute bridge', body_part: 'leg', equipment: 'bodyweight', is_bodyweight: true, aliases: ['글루트 브릿지', '글루트브릿지'] },
+  { canonical: 'single leg press', body_part: 'leg', equipment: 'machine', default_side_mode: 'each_side', aliases: ['one leg press', '싱글 레그 프레스', '한발 레그프레스'] },
+  { canonical: 'single leg deadlift', body_part: 'leg', equipment: 'dumbbell', default_side_mode: 'each_side', aliases: ['one leg deadlift', '싱글 레그 데드리프트', '한발 데드리프트'] },
+  { canonical: 'step up', body_part: 'leg', equipment: 'dumbbell', default_side_mode: 'each_side', aliases: ['step-up', '스텝업', '박스 스텝업'] },
+  { canonical: 'goblet squat', body_part: 'leg', equipment: 'dumbbell', aliases: ['고블렛 스쿼트', '고블렛스쿼트'] },
+  { canonical: 'smith machine squat', body_part: 'leg', equipment: 'machine', aliases: ['smith squat', '스미스 스쿼트', '스미스머신 스쿼트'] },
+  { canonical: 'smith machine bench press', body_part: 'chest', equipment: 'machine', aliases: ['smith bench press', '스미스 벤치프레스', '스미스벤치'] },
+  { canonical: 'concentration curl', body_part: 'arm', equipment: 'dumbbell', default_side_mode: 'each_side', aliases: ['컨센트레이션 컬', '컨센트레이션컬'] },
+  { canonical: 'cable curl', body_part: 'arm', equipment: 'cable', aliases: ['케이블 컬', '케이블컬'] },
+  { canonical: 'overhead tricep extension', body_part: 'arm', equipment: 'dumbbell', aliases: ['overhead triceps extension', '오버헤드 트라이셉 익스텐션'] },
+  { canonical: 'cable tricep extension', body_part: 'arm', equipment: 'cable', aliases: ['케이블 트라이셉 익스텐션', '케이블 삼두 익스텐션'] },
 ]
 
 const cfg = loadConfig()
 const db = getDb(cfg.databasePath)
 
 const insertExercise = db.prepare(
-  'INSERT INTO exercises(canonical_name, body_part, equipment, is_bodyweight) VALUES (?, ?, ?, ?) ON CONFLICT(canonical_name) DO UPDATE SET body_part = excluded.body_part, equipment = excluded.equipment, is_bodyweight = excluded.is_bodyweight RETURNING id',
+  `INSERT INTO exercises(canonical_name, body_part, equipment, is_bodyweight, default_side_mode, source, needs_review)
+   VALUES (?, ?, ?, ?, ?, 'seed', 0)
+   ON CONFLICT(canonical_name) DO UPDATE SET
+     body_part = excluded.body_part,
+     equipment = excluded.equipment,
+     is_bodyweight = excluded.is_bodyweight,
+     default_side_mode = excluded.default_side_mode,
+     source = excluded.source,
+     needs_review = 0
+   RETURNING id`,
 )
 const findAlias = db.prepare('SELECT id FROM exercise_aliases WHERE alias = ?')
 const insertAlias = db.prepare(
@@ -77,6 +112,7 @@ for (const seed of SEEDS) {
     seed.body_part,
     seed.equipment,
     seed.is_bodyweight ? 1 : 0,
+    seed.default_side_mode ?? inferDefaultSideMode(seed.canonical),
   ) as { id: number }
   added++
 
