@@ -6,6 +6,8 @@ fit-claw is a small, self-hosted fitness logging backend built for agent-first w
 
 The current v1 tracks weight training sessions, body measurements, estimated 1RM trends, recent activity, and dashboard aggregates. It runs comfortably on a Mac mini with Bun, Hono, and a single SQLite database.
 
+> **Architecture & Design Notes:** see **[docs/architecture.md](docs/architecture.md)** for the system diagram, the `log_workout` request lifecycle, the ERD, and the engineering decisions behind fit-claw — why the LLM is kept out of the data path, transactional migrations, the 1RM trend-plus-decay model with a learned personal constant, jobs vs. request-time work, and the auth/backup choices.
+
 ## Why This Exists
 
 - Agent-first input: agents call `/tools/*` endpoints with JSON, so the human can log workouts through chat instead of forms.
