@@ -56,7 +56,7 @@ bd close <id>         # Complete work
 bun install
 bun test
 bunx tsc --noEmit
-bun run dev          # local server at PORT (default 3000)
+bun run dev          # local server at PORT (default 8473)
 ```
 
 Bun is required (`~/.bun/bin/bun`). Tests use in-memory SQLite via `tests/helpers/db.ts::makeTestDb()`.

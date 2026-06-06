@@ -40,7 +40,7 @@ Edit `.env` and set at least:
 
 ```bash
 API_BEARER_TOKEN=replace-with-a-long-random-bootstrap-token
-PORT=3000
+PORT=8473
 ```
 
 Build and start the service:
@@ -66,8 +66,8 @@ docker compose run --rm fit-claw bun run scripts/seed-exercises.ts
 Smoke checks:
 
 ```bash
-curl http://localhost:3000/healthz
-curl -X POST http://localhost:3000/tools/log_workout \
+curl http://localhost:8473/healthz
+curl -X POST http://localhost:8473/tools/log_workout \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
   -d '{"exercise":"bench press","sets":[{"weight_kg":80,"reps":5}]}'
@@ -76,7 +76,7 @@ curl -X POST http://localhost:3000/tools/log_workout \
 Open the dashboard:
 
 ```text
-http://localhost:3000/?t=<token>
+http://localhost:8473/?t=<token>
 ```
 
 The first dashboard visit with `?t=` sets an `HttpOnly` session cookie and redirects to `/`, so the token is not kept in the browser URL.
@@ -101,7 +101,7 @@ Edit `.env` and set at least:
 ```bash
 API_BEARER_TOKEN=replace-with-a-long-random-bootstrap-token
 DATABASE_PATH=./data/fit-claw.db
-PORT=3000
+PORT=8473
 ```
 
 Initialize the database and create an agent token:
@@ -131,8 +131,8 @@ bun run dev
 Smoke checks:
 
 ```bash
-curl http://localhost:3000/healthz
-curl -X POST http://localhost:3000/tools/log_workout \
+curl http://localhost:8473/healthz
+curl -X POST http://localhost:8473/tools/log_workout \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
   -d '{"exercise":"bench press","sets":[{"weight_kg":80,"reps":5}]}'
@@ -141,7 +141,7 @@ curl -X POST http://localhost:3000/tools/log_workout \
 Open the dashboard inside your private network:
 
 ```text
-http://localhost:3000/?t=<token>
+http://localhost:8473/?t=<token>
 ```
 
 The first dashboard visit with `?t=` sets an `HttpOnly` session cookie and redirects to `/`.
@@ -175,7 +175,7 @@ Core tool endpoints:
 Example workout log:
 
 ```bash
-curl -X POST http://localhost:3000/tools/log_workout \
+curl -X POST http://localhost:8473/tools/log_workout \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
   -d '{
@@ -205,7 +205,7 @@ bun run scripts/import-external-exercises.ts path/to/exercises.json
 Example body measurement:
 
 ```bash
-curl -X POST http://localhost:3000/tools/log_body_measurement \
+curl -X POST http://localhost:8473/tools/log_body_measurement \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
   -d '{"weight_kg":72.5,"source":"manual"}'
@@ -214,7 +214,7 @@ curl -X POST http://localhost:3000/tools/log_body_measurement \
 Example performance prediction:
 
 ```bash
-curl -X POST http://localhost:3000/tools/predict_performance \
+curl -X POST http://localhost:8473/tools/predict_performance \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
   -d '{"exercise_id":1,"target_date":"2026-06-01"}'
@@ -223,7 +223,7 @@ curl -X POST http://localhost:3000/tools/predict_performance \
 Example threshold alarm:
 
 ```bash
-curl -X POST http://localhost:3000/tools/create_alarm_rule \
+curl -X POST http://localhost:8473/tools/create_alarm_rule \
   -H "authorization: Bearer <token>" \
   -H "content-type: application/json" \
   -d '{"scope":"exercise","exercise_id":1,"threshold_type":"1rm_below","threshold_value":95}'

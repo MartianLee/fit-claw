@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Read-only diagnostic for the fit-claw multi-instance / port-3000 conflict.
+# Read-only diagnostic for the fit-claw multi-instance / port conflict.
+# Checks both 8473 (current default) and 3000 (legacy default) since a host
+# mid-migration may still have old instances bound to 3000.
 # Safe to run repeatedly: it inspects, copies DBs to /tmp, and prints a report.
 # It changes NOTHING on the live system. Run this FIRST on the mini.
 #
@@ -10,8 +12,10 @@ set -uo pipefail
 say() { printf '\n=== %s ===\n' "$*"; }
 TMP="$(mktemp -d /tmp/fitclaw-inspect.XXXXXX)"
 
-say "Who is listening on :3000"
-lsof -nP -iTCP:3000 -sTCP:LISTEN || echo "(nothing listening — app is down)"
+for p in 8473 3000; do
+  say "Who is listening on :$p"
+  lsof -nP -iTCP:"$p" -sTCP:LISTEN || echo "(nothing listening on :$p)"
+done
 
 say "launchd fit-claw services (this user)"
 launchctl list | grep -i fitclaw || echo "(none loaded)"
@@ -26,9 +30,11 @@ for d in "$HOME/workspace/fit-claw" "$HOME/.openclaw/workspace/fit-claw" "$(pwd)
 done
 echo "compose file: ${COMPOSE:-<not found>}"
 
-say "Healthz"
-curl -sS -m 5 http://127.0.0.1:3000/healthz || echo "(no response)"
-echo
+for p in 8473 3000; do
+  say "Healthz on :$p"
+  curl -sS -m 5 "http://127.0.0.1:$p/healthz" || echo "(no response on :$p)"
+  echo
+done
 
 # --- Inventory every fit-claw.db and snapshot it WAL-safely for inspection ---
 report_db() {

@@ -8,6 +8,10 @@ describe('loadConfig', () => {
     expect(() => loadConfig({ DATABASE_PATH: 'x', PORT: '3000' } as any)).toThrow(/API_BEARER_TOKEN/)
   })
 
+  it('defaults PORT to 8473 when unset', () => {
+    expect(loadConfig({ API_BEARER_TOKEN: token } as any).port).toBe(8473)
+  })
+
   it('returns parsed config', () => {
     const cfg = loadConfig({
       PORT: '3001',

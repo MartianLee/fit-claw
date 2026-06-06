@@ -19,6 +19,10 @@ volume, repoint the backup job.
 > Fastest path: on the mini run `sudo tailscale up --ssh`, then Claude can `ssh mini@mini-macmini`
 > and drive steps 1–6 live. Otherwise follow them by hand below.
 
+> **Port note:** the app default is now **8473** (changed from 3000). A freshly pulled/rebuilt
+> Docker instance listens on 8473; legacy launchd/openclaw instances may still be on 3000 until
+> stopped. `inspect-instances.sh` checks both ports.
+
 ## 1. Inspect first (READ-ONLY — never skip)
 
 ```bash
@@ -38,7 +42,8 @@ launchctl bootout gui/$(id -u)/com.fitclaw.api 2>/dev/null
 launchctl disable gui/$(id -u)/com.fitclaw.api
 mkdir -p ~/fitclaw-cutover-backup
 mv ~/Library/LaunchAgents/com.fitclaw.api.plist ~/fitclaw-cutover-backup/ 2>/dev/null
-lsof -nP -iTCP:3000 -sTCP:LISTEN   # should now show ONLY the docker-proxy/container
+lsof -nP -iTCP:8473 -sTCP:LISTEN   # new default: should show ONLY the docker container
+lsof -nP -iTCP:3000 -sTCP:LISTEN   # legacy port: should now be empty
 ```
 
 ## 3. Stop the openclaw copy from self-spawning
@@ -46,7 +51,7 @@ lsof -nP -iTCP:3000 -sTCP:LISTEN   # should now show ONLY the docker-proxy/conta
 The openclaw workspace must **not** run its own `bun src/server.ts`. Point the agent at the
 already-running container instead:
 
-- Ensure openclaw calls `http://127.0.0.1:3000` with a valid `Authorization: Bearer <token>`.
+- Ensure openclaw calls `http://127.0.0.1:8473` with a valid `Authorization: Bearer <token>`.
 - Make sure no openclaw task/cron does `bun run`/`bun src/server.ts` for fit-claw.
 - (The ZodError in the logs was this copy missing `API_BEARER_TOKEN`; it should talk to the
   container's API, not boot its own server, so it no longer needs the full `.env`.)
@@ -90,16 +95,16 @@ Until fixed, the daily 3am backup is backing up the wrong DB — treat as follow
 ## 6. Verify
 
 ```bash
-curl -s http://127.0.0.1:3000/healthz                       # {"ok":true}
+curl -s http://127.0.0.1:8473/healthz                       # {"ok":true}
 TOKEN=<agent bearer from the container .env>
 # write something cheap, then read it back from the SAME instance:
-curl -s -X POST http://127.0.0.1:3000/tools/... -H "Authorization: Bearer $TOKEN" -d '...'
+curl -s -X POST http://127.0.0.1:8473/tools/... -H "Authorization: Bearer $TOKEN" -d '...'
 # confirm it landed in the volume DB:
 docker compose -f "$COMPOSE" cp fit-claw:/app/data/fit-claw.db /tmp/after.db
 sqlite3 /tmp/after.db "SELECT count(*),max(started_at) FROM workout_sessions;"
 ```
 
-Success = only one listener on `:3000`, `api.err.log` stops growing with EADDRINUSE, and the
+Success = only one listener on `:8473` (and nothing on legacy `:3000`), `api.err.log` stops growing with EADDRINUSE, and the
 test write is visible in the volume DB the agent reads.
 
 ## Rollback

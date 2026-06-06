@@ -17,7 +17,7 @@ credentials-file: /Users/dede/.cloudflared/<tunnel-id>.json
 ingress:
   - hostname: api.fit-claw.<your-domain>
     path: /import/.*
-    service: http://localhost:3000
+    service: http://localhost:8473
   - service: http_status:404
 ```
 
